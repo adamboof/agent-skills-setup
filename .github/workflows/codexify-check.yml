@@ -1,0 +1,38 @@
+name: Codexify Check
+
+on:
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '.mcp.json.example'
+      - '.codex/overrides/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.claude/**'
+      - '.mcp.json.example'
+      - '.codex/overrides/**'
+
+permissions:
+  contents: read
+
+jobs:
+  codexify-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify Codex overlay is up to date
+        run: |
+          python scripts/codexify.py --check || {
+            echo 'Codex overlay is out of date. Run "python scripts/codexify.py" and commit regenerated files.'
+            exit 1
+          }
