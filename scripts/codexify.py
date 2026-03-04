@@ -1,9 +1,24 @@
 #!/usr/bin/env python3
-"""codexify: sync Codex overlay artifacts from .claude sources."""
+"""codexify: sync Codex overlay artifacts from .claude sources.
+
+Usage:
+  python scripts/codexify.py
+      Synchronize Codex overlay artifacts:
+      - skills in `.agents/skills/<skill>` routed from overrides or symlinks
+      - generated role configs in `.codex/agents/**/*.toml`
+      - generated project config in `.codex/config.toml`
+
+  python scripts/codexify.py --check
+      Validate overlay artifacts are in sync without mutating files.
+
+  python scripts/codexify.py check
+      Alias for `--check` for compatibility with repository docs.
+"""
 
 from __future__ import annotations
 
 import argparse
+import filecmp
 import json
 import shutil
 from dataclasses import dataclass
@@ -11,6 +26,7 @@ from pathlib import Path
 from typing import Any
 
 REQUIRED_DIRS = (".agents", ".agents/skills", ".codex", ".codex/agents")
+OVERRIDES_ROOT = ".codex/overrides/skills"
 MCP_SOURCE_FILE = ".mcp.json.example"
 CODEX_CONFIG_FILE = ".codex/config.toml"
 CLAUDE_AGENTS_DIR = ".claude/agents"
@@ -62,6 +78,17 @@ def ensure_link(path: Path, target: str) -> str:
     return f"UPDATED: {path} -> {target}"
 
 
+def ensure_dir_copy(dest: Path, source: Path) -> str:
+    if dest.exists() or dest.is_symlink():
+        if dest.is_dir() and not dest.is_symlink():
+            shutil.rmtree(dest)
+        else:
+            dest.unlink()
+
+    shutil.copytree(source, dest, symlinks=False)
+    return f"UPDATED: {dest} (copied from {source})"
+
+
 def validate_link(path: Path, target: str) -> str | None:
     if not path.exists() and not path.is_symlink():
         return f"MISSING: {path} (expected symlink to {target})"
@@ -71,6 +98,49 @@ def validate_link(path: Path, target: str) -> str | None:
     if actual != target:
         return f"INCORRECT: {path} -> {actual} (expected {target})"
     return None
+
+
+def compare_directories(expected: Path, actual: Path) -> list[str]:
+    """Return deterministic list of mismatch messages for two directories."""
+    issues: list[str] = []
+
+    comparison = filecmp.dircmp(expected, actual)
+
+    for name in sorted(comparison.left_only):
+        issues.append(f"MISMATCH: Missing in destination: {actual / name}")
+    for name in sorted(comparison.right_only):
+        issues.append(f"MISMATCH: Unexpected in destination: {actual / name}")
+    for name in sorted(comparison.funny_files):
+        issues.append(f"MISMATCH: Problem comparing file: {actual / name}")
+
+    _, mismatch, errors = filecmp.cmpfiles(
+        expected,
+        actual,
+        sorted(comparison.common_files),
+        shallow=False,
+    )
+    for name in sorted(mismatch):
+        issues.append(f"MISMATCH: File content differs: {actual / name}")
+    for name in sorted(errors):
+        issues.append(f"MISMATCH: File compare error: {actual / name}")
+
+    for subdir in sorted(comparison.common_dirs):
+        issues.extend(compare_directories(expected / subdir, actual / subdir))
+
+    return issues
+
+
+def validate_override_copy(path: Path, override_source: Path) -> list[str]:
+    if not path.exists() and not path.is_symlink():
+        return [f"MISSING: {path} (expected directory copy of {override_source})"]
+
+    if path.is_symlink():
+        return [f"INCORRECT: {path} is a symlink (expected real directory copy)"]
+
+    if not path.is_dir():
+        return [f"INCORRECT: {path} exists but is not a directory"]
+
+    return compare_directories(override_source, path)
 
 
 def toml_string(value: str) -> str:
@@ -274,6 +344,7 @@ def main() -> int:
     repo_root = Path(__file__).resolve().parent.parent
     source_root = repo_root / ".claude" / "skills"
     dest_root = repo_root / ".agents" / "skills"
+    overrides_root = repo_root / OVERRIDES_ROOT
     mcp_source = repo_root / MCP_SOURCE_FILE
     codex_config = repo_root / CODEX_CONFIG_FILE
     claude_agents_root = repo_root / CLAUDE_AGENTS_DIR
@@ -327,6 +398,19 @@ def main() -> int:
 
         link_path = dest_root / skill_name
         target = f"../../.claude/skills/{skill_name}"
+        override_dir = overrides_root / skill_name
+
+        if override_dir.is_dir():
+            if check_mode:
+                override_issues = validate_override_copy(link_path, override_dir)
+                if override_issues:
+                    issues.extend(override_issues)
+                else:
+                    print(f"OK: {link_path} (override copy from {override_dir})")
+            else:
+                print(ensure_dir_copy(link_path, override_dir))
+            continue
+
         if check_mode:
             issue = validate_link(link_path, target)
             if issue:
