@@ -1,0 +1,7 @@
+# Codex project configuration (placeholder)
+#
+# This file is intentionally minimal for PR1.
+# Relative paths in this file are resolved from the `.codex/` directory.
+# Codex loads this file only when the repository is trusted.
+
+version = 1
