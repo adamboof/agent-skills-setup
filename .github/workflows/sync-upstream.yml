@@ -1,0 +1,90 @@
+name: Sync Upstream and Regenerate Codex Overlay
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Prepare branch and merge upstream
+        env:
+          SYNC_BRANCH: sync-upstream-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream https://github.com/darraghh1/my-claude-setup.git
+          git fetch upstream
+
+          git checkout -b "$SYNC_BRANCH"
+          git merge --no-edit upstream/main
+
+          echo "SYNC_BRANCH=$SYNC_BRANCH" >> "$GITHUB_ENV"
+
+      - name: Regenerate Codex overlay
+        run: |
+          set -euo pipefail
+
+          python scripts/codexify.py
+
+          # Guardrail: codexify must not directly modify canonical Claude source.
+          if [ -n "$(git status --porcelain .claude)" ]; then
+            echo "ERROR: codexify produced direct changes in .claude/**, which is not allowed."
+            git status --short .claude
+            exit 1
+          fi
+
+      - name: Run Codex agent conversion adjustments
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: .github/codex/prompts/codexify.md
+          sandbox: workspace-write
+
+      - name: Commit regenerated overlay
+        run: |
+          set -euo pipefail
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git add -A
+          git commit -m "chore: sync upstream and regenerate Codex overlay"
+
+      - name: Open pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ env.SYNC_BRANCH }}
+          base: main
+          title: "automation: sync upstream + regenerate Codex overlay"
+          body: |
+            ## Summary
+            - Fetch and merge latest upstream from `darraghh1/my-claude-setup`
+            - Regenerate Codex overlay using `python scripts/codexify.py`
+            - Include resulting updates for review
+
+            ## Notes
+            - `.claude/**` changes (if any) should come only from upstream merge content.

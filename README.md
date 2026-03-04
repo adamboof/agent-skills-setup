@@ -73,6 +73,7 @@ This repo includes a Codex overlay that complements (but does not replace) the C
 - Codex reads repository guidance from `AGENTS.md`.
 - Codex discovers local skills from `.agents/skills`.
 - After pulling upstream changes, run `python scripts/codexify.py` to regenerate/sync Codex overlay files.
+- GitHub Actions automation that runs Codex requires repository secret `OPENAI_API_KEY` (used by `openai/codex-action@v1`).
 
 ---
 
