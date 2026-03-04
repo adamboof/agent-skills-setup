@@ -9,6 +9,7 @@ Extracted from a production SaaS codebase and generalized for reuse. All files u
 ## Table of Contents
 
 - [What This Provides](#what-this-provides)
+- [Codex Support](#codex-support)
 - [Development Workflow](#development-workflow)
   - [The Pipeline](#the-pipeline)
   - [Atomic Phases](#atomic-phases)
@@ -62,6 +63,16 @@ Extracted from a production SaaS codebase and generalized for reuse. All files u
 | **Agents**      | 9 agent definitions | Specialized sub-agents for architecture, review, testing, building, auditing, planning     |
 | **MCP Servers** | 5 integrations      | Browser automation, documentation lookup, web search, structured reasoning, diagramming    |
 | **Rules**       | 16 markdown files   | Coding standards for TypeScript, React, Supabase, security, testing, and more              |
+
+---
+
+## Codex Support
+
+This repo includes a Codex overlay that complements (but does not replace) the Claude setup:
+
+- Codex reads repository guidance from `AGENTS.md`.
+- Codex discovers local skills from `.agents/skills`.
+- After pulling upstream changes, run `python scripts/codexify.py` to regenerate/sync Codex overlay files.
 
 ---
 
