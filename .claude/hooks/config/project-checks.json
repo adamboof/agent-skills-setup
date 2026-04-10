@@ -7,10 +7,22 @@
   ],
   "useClientEnabled": false,
   "blockedImports": [
-    { "pattern": "@mui/", "message": "project uses @fluentui/react-components instead" },
-    { "pattern": "@chakra-ui/", "message": "project uses @fluentui/react-components instead" },
-    { "pattern": "@radix-ui/", "message": "project uses @fluentui/react-components instead" },
-    { "pattern": "antd", "message": "project uses @fluentui/react-components instead" }
+    {
+      "pattern": "@mui/",
+      "message": "project uses @fluentui/react-components instead"
+    },
+    {
+      "pattern": "@chakra-ui/",
+      "message": "project uses @fluentui/react-components instead"
+    },
+    {
+      "pattern": "@radix-ui/",
+      "message": "project uses @fluentui/react-components instead"
+    },
+    {
+      "pattern": "antd",
+      "message": "project uses @fluentui/react-components instead"
+    }
   ],
   "wrapperImports": [
     {

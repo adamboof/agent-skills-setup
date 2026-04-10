@@ -79,7 +79,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ env.SYNC_BRANCH }}
           base: main
-          title: "automation: sync upstream + regenerate Codex overlay"
+          title: 'automation: sync upstream + regenerate Codex overlay'
           body: |
             ## Summary
             - Fetch and merge latest upstream from `darraghh1/my-claude-setup`
